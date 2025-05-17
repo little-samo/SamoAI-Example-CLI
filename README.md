@@ -97,4 +97,6 @@ To learn more about SamoAI, visit the [SamoAI repository](https://github.com/lit
 
 ---
 
-Made with ❤️ by the SamoAI Team
+<div align="center">
+  <p>Made with ❤️ by the SamoAI Team</p>
+</div>
