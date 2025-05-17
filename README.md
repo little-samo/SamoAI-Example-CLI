@@ -6,7 +6,6 @@
 
 <p align="center">
   <a href="#features">Features</a> •
-  <a href="#requirements">Requirements</a> •
   <a href="#installation">Installation</a> •
   <a href="#usage">Usage</a> •
   <a href="#customization">Customization</a> •
@@ -17,12 +16,8 @@
 ## Features
 
 - Interactive chat with SamoAI agents in your terminal
-- Support for multiple agents (Samo, Nyx) that retain their personality and memory
+- Support for multiple agents that retain their personality and memory
 - Easy-to-use command line interface
-
-## Requirements
-
-- Node.js >=22.0.0
 
 ## Installation
 
