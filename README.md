@@ -62,7 +62,7 @@ npm run chat -- -- --agents samo
 Or:
 
 ```
-npm run chat -- -- --agents samo,nyx
+npm run chat -- -- --agents "samo,nyx"
 ```
 
 > **Note:** The double dashes (`-- --`) are important! The first set tells npm that what follows are arguments for the script, and the second set is needed for proper argument parsing within the script itself.
