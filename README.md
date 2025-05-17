@@ -26,23 +26,12 @@
 
 ## Installation
 
-1. Clone this repository:
-   ```
-   git clone https://github.com/little-samo/SamoAI-Example-CLI.git
-   cd SamoAI-Example-CLI
-   ```
-
-2. Install dependencies:
+1. Install dependencies:
    ```
    npm install
    ```
 
-3. Create necessary directories:
-   ```
-   mkdir -p models/agents models/locations states/agents states/locations
-   ```
-
-4. Set up environment variables:
+2. Set up environment variables:
    ```
    cp .env.example .env
    ```
@@ -67,14 +56,16 @@ npm run chat
 You can also specify which agents to chat with:
 
 ```
-npm run chat -- --agents samo
+npm run chat -- -- --agents samo
 ```
 
 Or:
 
 ```
-npm run chat -- --agents samo,nyx
+npm run chat -- -- --agents samo,nyx
 ```
+
+> **Note:** The double dashes (`-- --`) are important! The first set tells npm that what follows are arguments for the script, and the second set is needed for proper argument parsing within the script itself.
 
 You can exit the chat session by pressing `Ctrl+C`.
 
@@ -82,7 +73,7 @@ You can exit the chat session by pressing `Ctrl+C`.
 
 ### Agents
 
-Create or modify agents by adding or editing JSON files in the `models/agents` directory. Example agents like Nyx can be found in `models/agents/samo.json`.
+Create or modify agents by adding or editing JSON files in the `models/agents` directory. Example agents like Little Samo can be found in `models/agents/samo.json`.
 
 ### Locations
 
@@ -91,8 +82,10 @@ Customize interaction spaces by managing JSON files in the `models/locations` di
 When running the chat command, you can specify which location to use:
 
 ```
-npm run chat -- --location custom_location
+npm run chat -- -- --location custom_location
 ```
+
+> **Important:** Remember to include both sets of double dashes (`-- --`) when passing arguments to the chat command.
 
 ## Learn More
 
