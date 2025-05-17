@@ -723,7 +723,9 @@ async function bootstrap() {
       await locationStorage.initialize([options.location]);
       await agentStorage.initialize(agents);
 
-      const locationId = Object.keys(locationStorage.database.locations)[0];
+      const locationId = Number(
+        Object.keys(locationStorage.database.locations)[0]
+      ) as LocationId;
       const userId = 1 as UserId;
       const userName = 'User';
 
