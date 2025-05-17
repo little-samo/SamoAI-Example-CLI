@@ -809,6 +809,8 @@ async function bootstrap() {
       void updateLoop();
     });
 
+  // Remove the double dashes from the arguments (platform specific)
+  process.argv = process.argv.filter((arg) => arg !== '--');
   program.parse(process.argv);
 }
 
