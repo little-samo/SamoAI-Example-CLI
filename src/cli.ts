@@ -600,6 +600,9 @@ class TerminalUI {
    * Gracefully shuts down the terminal UI
    */
   public async shutdown() {
+    // Don't shutdown if already shutting down
+    if (!this.isRunning) return;
+
     // Set running state to false first to prevent new messages and UI updates
     this.isRunning = false;
 
@@ -684,6 +687,20 @@ class TerminalUI {
  * Sets up dependencies, CLI, and starts the chat session
  */
 async function bootstrap() {
+  // Create a reference to store the UI instance
+  let terminalUI: TerminalUI | null = null;
+
+  // Add SIGINT handler for graceful shutdown on macOS and other platforms
+  process.on('SIGINT', () => {
+    if (terminalUI) {
+      void terminalUI.shutdown();
+    } else {
+      // If UI isn't initialized yet, just exit
+      console.log('Exiting...');
+      process.exit(0);
+    }
+  });
+
   const agentStorage = new AgentStorage(
     path.join(process.cwd(), 'models', 'agents'),
     path.join(process.cwd(), 'states', 'agents')
@@ -729,13 +746,18 @@ async function bootstrap() {
       const userId = 1 as UserId;
       const userName = 'User';
 
-      // Initialize UI
-      const ui = new TerminalUI(userName, locationId, userId, locationStorage);
-      ui.addMessage(
+      // Initialize UI and store reference for SIGINT handler
+      terminalUI = new TerminalUI(
+        userName,
+        locationId,
+        userId,
+        locationStorage
+      );
+      terminalUI.addMessage(
         'System',
         `Chatting with agents: ${agents.join(', ')} at location: ${options.location}`
       );
-      ui.addMessage('System', 'Press Ctrl+C to exit...');
+      terminalUI.addMessage('System', 'Press Ctrl+C to exit...');
 
       // Initialize location state
       const locationState =
@@ -767,7 +789,7 @@ async function bootstrap() {
       }
 
       // Load initial messages
-      await ui.loadInitialMessages();
+      await terminalUI.loadInitialMessages();
 
       // Update loop - periodically checks for and processes agent responses
       const updateLoop = async () => {
@@ -784,14 +806,14 @@ async function bootstrap() {
               await WorldManager.instance.updateLocation(userId, locationId, {
                 preAction: async (location: Location) => {
                   // Setup message and thinking event handlers
-                  ui.setMessageEventHandlers(location);
+                  terminalUI!.setMessageEventHandlers(location);
                 },
                 handleSave: async (save) => {
-                  ui.incrementSaveCount();
+                  terminalUI!.incrementSaveCount();
                   try {
                     await save;
                   } finally {
-                    ui.decrementSaveCount();
+                    terminalUI!.decrementSaveCount();
                   }
                 },
               });
@@ -801,7 +823,7 @@ async function bootstrap() {
           } catch (error) {
             const errMessage =
               error instanceof Error ? error.message : String(error);
-            ui.addMessage('Error', `Update Loop: ${errMessage}`);
+            terminalUI!.addMessage('Error', `Update Loop: ${errMessage}`);
             await new Promise((resolve) => setTimeout(resolve, 1000));
           }
         }
