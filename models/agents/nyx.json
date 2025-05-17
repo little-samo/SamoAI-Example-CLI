@@ -1,7 +1,6 @@
 {
   "id": 2,
   "name": "Nyx",
-  "username": "truth_nyx",
   "meta": {
     "core": "evaluate_and_actions",
     "llms": [
