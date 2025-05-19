@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/little-samo/SamoAI/master/docs/static/img/samo_mascot.png" alt="SamoAI Mascot" width="250" />
+  <img src="https://media.githubusercontent.com/media/little-samo/CI/master/assets/characters/samo/profile.png" alt="Little Samo Mascot" width="250" />
   <h1>SamoAI-Example-CLI</h1>
   <p><em>An example CLI application for interacting with <a href="https://github.com/little-samo/SamoAI">@little-samo/samo-ai</a> agents in your terminal</em></p>
 </div>
