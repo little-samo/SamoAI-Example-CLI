@@ -1,4 +1,3 @@
-import { EventEmitter } from 'events';
 import path from 'path';
 
 import {
@@ -654,7 +653,7 @@ class TerminalUI {
    */
   public setMessageEventHandlers(location: Location) {
     // Listen for new messages
-    (location as unknown as EventEmitter).on(
+    location.on(
       'messageAdded',
       async (_loc: Location, message: LocationMessage) => {
         if (message.entityType === EntityType.User || !message.message) {
@@ -673,13 +672,10 @@ class TerminalUI {
     );
 
     // Listen for agent thinking
-    (location as unknown as EventEmitter).on(
-      'agentExecuteNextActions',
-      async (agent: Agent) => {
-        // Show thinking status
-        this.startThinking(agent.model.name);
-      }
-    );
+    location.on('agentExecuteNextActions', async (agent: Agent) => {
+      // Show thinking status
+      this.startThinking(agent.model.name);
+    });
   }
 }
 
