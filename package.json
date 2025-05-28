@@ -9,7 +9,6 @@
   "scripts": {
     "cli": "ts-node src/cli.ts",
     "chat": "ts-node src/cli.ts chat",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint": "eslint --fix"
   },
   "dependencies": {
