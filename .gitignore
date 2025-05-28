@@ -52,10 +52,7 @@ lerna-debug.log*
 .env.local
 
 # states directory
-/states/*
-!states/**/
-!states/**/.gitkeep
-states/**/*.json
+/states/**/*
 
 # temp directory
 .temp

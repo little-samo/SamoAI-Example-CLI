@@ -11,17 +11,18 @@ import {
   AgentId,
   Agent,
 } from '@little-samo/samo-ai';
+import {
+  AgentStorage,
+  GimmickStorage,
+  ItemStorage,
+  LocationStorage,
+  UserStorage,
+} from '@little-samo/samo-ai-repository-storage';
 import { Command } from 'commander';
 import * as dotenv from 'dotenv';
 import { terminal as term } from 'terminal-kit';
 
 import * as packageJson from '../package.json';
-
-import { AgentStorage } from './storage/agent.storage';
-import { GimmickStorage } from './storage/gimmick.storage';
-import { ItemStorage } from './storage/item.storage';
-import { LocationStorage } from './storage/location.storage';
-import { UserStorage } from './storage/user.storage';
 
 dotenv.config();
 
@@ -705,13 +706,20 @@ async function bootstrap() {
     path.join(process.cwd(), 'models', 'agents'),
     path.join(process.cwd(), 'states', 'agents')
   );
-  const gimmickStorage = new GimmickStorage();
-  const itemStorage = new ItemStorage();
+  const gimmickStorage = new GimmickStorage(
+    path.join(process.cwd(), 'states', 'gimmicks')
+  );
+  const itemStorage = new ItemStorage(
+    path.join(process.cwd(), 'states', 'items')
+  );
   const locationStorage = new LocationStorage(
     path.join(process.cwd(), 'models', 'locations'),
     path.join(process.cwd(), 'states', 'locations')
   );
-  const userStorage = new UserStorage();
+  const userStorage = new UserStorage(
+    path.join(process.cwd(), 'models', 'users'),
+    path.join(process.cwd(), 'states', 'users')
+  );
 
   WorldManager.initialize({
     agentRepository: agentStorage,
@@ -739,12 +747,13 @@ async function bootstrap() {
       const agents = options.agents.split(',');
       await locationStorage.initialize([options.location]);
       await agentStorage.initialize(agents);
+      await userStorage.initialize(['user']);
 
       const locationId = Number(
-        Object.keys(locationStorage.database.locations)[0]
+        locationStorage.getLocationIds()[0]
       ) as LocationId;
-      const userId = 1 as UserId;
-      const userName = 'User';
+      const userId = Number(userStorage.getUserIds()[0]) as UserId;
+      const userName = (await userStorage.getUserModel(userId)).nickname;
 
       // Initialize UI and store reference for SIGINT handler
       terminalUI = new TerminalUI(
@@ -781,7 +790,7 @@ async function bootstrap() {
       await locationStorage.addLocationStateUserId(locationId, userId);
 
       // Add the agents
-      for (const agentId of Object.keys(agentStorage.database.agents)) {
+      for (const agentId of agentStorage.getAgentIds()) {
         await locationStorage.addLocationStateAgentId(
           locationId,
           Number(agentId) as AgentId
