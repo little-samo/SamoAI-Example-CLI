@@ -19,6 +19,7 @@ import {
 } from '@little-samo/samo-ai-repository-storage';
 import { Command } from 'commander';
 import * as dotenv from 'dotenv';
+import stringWidth from 'string-width';
 import { terminal as term } from 'terminal-kit';
 
 import * as packageJson from '../package.json';
@@ -28,6 +29,14 @@ dotenv.config();
 interface ChatOptions {
   agents: string;
   location: string;
+}
+
+/**
+ * Represents a text segment with its styling state
+ */
+interface TextSegment {
+  text: string;
+  isDim: boolean;
 }
 
 /**
@@ -93,6 +102,45 @@ class TerminalUI {
   }
 
   /**
+   * Gets the actual display width of text (handles multi-byte characters)
+   */
+  private getTextWidth(text: string): number {
+    return stringWidth(text);
+  }
+
+  /**
+   * Truncates text to fit within the specified display width
+   */
+  private truncateTextToWidth(
+    text: string,
+    maxWidth: number
+  ): { text: string; remaining: string } {
+    if (this.getTextWidth(text) <= maxWidth) {
+      return { text, remaining: '' };
+    }
+
+    let truncated = '';
+    let currentWidth = 0;
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const charWidth = this.getTextWidth(char);
+
+      if (currentWidth + charWidth > maxWidth) {
+        return {
+          text: truncated,
+          remaining: text.substring(i),
+        };
+      }
+
+      truncated += char;
+      currentWidth += charWidth;
+    }
+
+    return { text: truncated, remaining: '' };
+  }
+
+  /**
    * Assigns consistent colors to entities for visual identification
    */
   private getColorForEntity(name: string): string {
@@ -104,13 +152,144 @@ class TerminalUI {
   }
 
   /**
-   * Formats message text with styling (e.g., actions like *waves*)
+   * Parses message text into segments with styling information
+   * Properly handles actions that span multiple lines
    */
-  private formatMessage(message: string): string {
-    // Match text between asterisks for actions like *wag tail excitedly*
-    return message.replace(/\*([^*]+)\*/g, (match) => {
-      return term.str.dim(match).toString();
-    });
+  private parseMessageSegments(message: string): TextSegment[] {
+    const segments: TextSegment[] = [];
+    let currentPos = 0;
+    let isDimActive = false;
+
+    // Find all asterisk positions
+    const asteriskPositions: number[] = [];
+    for (let i = 0; i < message.length; i++) {
+      if (message[i] === '*') {
+        asteriskPositions.push(i);
+      }
+    }
+
+    // Process text between asterisks
+    for (let i = 0; i < asteriskPositions.length; i++) {
+      const asteriskPos = asteriskPositions[i];
+
+      // Add text before this asterisk
+      if (asteriskPos > currentPos) {
+        segments.push({
+          text: message.substring(currentPos, asteriskPos),
+          isDim: isDimActive,
+        });
+      }
+
+      // Determine if this is opening or closing asterisk
+      if (!isDimActive) {
+        // This is opening asterisk - start action mode
+        isDimActive = true;
+        segments.push({
+          text: '*',
+          isDim: true, // Opening asterisk is action colored
+        });
+      } else {
+        // This is closing asterisk - end action mode
+        segments.push({
+          text: '*',
+          isDim: true, // Closing asterisk is also action colored
+        });
+        isDimActive = false;
+      }
+
+      currentPos = asteriskPos + 1;
+    }
+
+    // Add remaining text
+    if (currentPos < message.length) {
+      segments.push({
+        text: message.substring(currentPos),
+        isDim: isDimActive,
+      });
+    }
+
+    return segments;
+  }
+
+  /**
+   * Wraps text segments across lines while maintaining styling states
+   */
+  private wrapTextSegments(
+    segments: TextSegment[],
+    maxWidth: number
+  ): TextSegment[][] {
+    const lines: TextSegment[][] = [];
+    let currentLine: TextSegment[] = [];
+    let currentLineWidth = 0;
+
+    for (const segment of segments) {
+      let remainingText = segment.text;
+
+      while (remainingText.length > 0) {
+        const availableWidth = maxWidth - currentLineWidth;
+        const textWidth = this.getTextWidth(remainingText);
+
+        if (textWidth <= availableWidth) {
+          // Entire remaining text fits on current line
+          if (remainingText.length > 0) {
+            currentLine.push({
+              text: remainingText,
+              isDim: segment.isDim,
+            });
+            currentLineWidth += textWidth;
+          }
+          remainingText = '';
+        } else {
+          // Need to split the text
+          if (availableWidth > 0) {
+            // Take what fits on current line
+            const { text: fittingText, remaining } = this.truncateTextToWidth(
+              remainingText,
+              availableWidth
+            );
+            if (fittingText.length > 0) {
+              currentLine.push({
+                text: fittingText,
+                isDim: segment.isDim,
+              });
+            }
+            remainingText = remaining;
+          }
+
+          // Start new line
+          lines.push(currentLine);
+          currentLine = [];
+          currentLineWidth = 0;
+        }
+      }
+    }
+
+    // Add the last line if it has content
+    if (currentLine.length > 0) {
+      lines.push(currentLine);
+    }
+
+    // Ensure we have at least one line
+    if (lines.length === 0) {
+      lines.push([]);
+    }
+
+    return lines;
+  }
+
+  /**
+   * Renders a line of text segments with proper styling
+   */
+  private renderTextSegments(segments: TextSegment[]): void {
+    for (const segment of segments) {
+      if (segment.isDim) {
+        // Use cyan with dim for lighter blue appearance
+        term.cyan.dim(segment.text);
+      } else {
+        term.cyan(segment.text);
+      }
+    }
+    term.styleReset();
   }
 
   private clearScreen() {
@@ -175,22 +354,17 @@ class TerminalUI {
       const lines = message.split(/\r?\n/);
 
       // Calculate maximum width for text (accounting for name and prefix)
-      const nameWidth = name.length + 2; // 2 for ': '
+      const nameWidth = this.getTextWidth(name) + 2; // 2 for ': '
       const maxTextWidth = term.width - nameWidth - 1; // -1 for safety margin
 
       let lineCount = 0;
 
       // For each line in the message...
       for (const line of lines) {
-        const formattedLine = this.formatMessage(line);
-
-        // If the line is short enough, it's just one line
-        if (formattedLine.length <= maxTextWidth) {
-          lineCount++;
-        } else {
-          // Otherwise, calculate wrapped lines
-          lineCount += Math.ceil(formattedLine.length / maxTextWidth);
-        }
+        // Parse the line into segments and wrap them
+        const segments = this.parseMessageSegments(line);
+        const wrappedLines = this.wrapTextSegments(segments, maxTextWidth);
+        lineCount += wrappedLines.length;
       }
 
       // Need at least one line even for empty messages
@@ -225,27 +399,18 @@ class TerminalUI {
       const lines = message.split(/\r?\n/);
 
       // Calculate maximum width for text (accounting for name and prefix)
-      const nameWidth = name.length + 2; // 2 for ': '
+      const nameWidth = this.getTextWidth(name) + 2; // 2 for ': '
       const maxTextWidth = term.width - nameWidth - 1; // -1 for safety margin
 
       // Process all lines, wrapping long lines as needed
-      const allLines: string[] = [];
+      const allLines: TextSegment[][] = [];
 
       // For each line in the message...
       for (const line of lines) {
-        const formattedLine = this.formatMessage(line);
-
-        // If the line is short enough, add it as is
-        if (formattedLine.length <= maxTextWidth) {
-          allLines.push(formattedLine);
-        } else {
-          // Otherwise, wrap the line
-          let remainingText = formattedLine;
-          while (remainingText.length > 0) {
-            allLines.push(remainingText.substring(0, maxTextWidth));
-            remainingText = remainingText.substring(maxTextWidth);
-          }
-        }
+        // Parse the line into segments and wrap them
+        const segments = this.parseMessageSegments(line);
+        const wrappedLines = this.wrapTextSegments(segments, maxTextWidth);
+        allLines.push(...wrappedLines);
       }
 
       // Now display all lines
@@ -264,7 +429,8 @@ class TerminalUI {
         else term.bold.yellow(name);
 
         term.white(':').styleReset().white(' ');
-        term.cyan(allLines[0]).styleReset();
+        // Render the first line with proper styling
+        this.renderTextSegments(allLines[0]);
         currentLine++;
 
         // Remaining lines with indentation
@@ -274,9 +440,10 @@ class TerminalUI {
           i++
         ) {
           term.moveTo(1, currentLine);
-          // Add indentation equal to the name length + 2 for ': '
+          // Add indentation equal to the name display width + 2 for ': '
           term.white(' '.repeat(nameWidth));
-          term.cyan(allLines[i]).styleReset();
+          // Render each line with proper styling
+          this.renderTextSegments(allLines[i]);
           currentLine++;
         }
       } else {
@@ -378,7 +545,7 @@ class TerminalUI {
     this.drawInputLine();
 
     // Position cursor correctly - ensure it's after "User: "
-    const inputStartX = this.userName.length + 3; // +3 for ": " and space
+    const inputStartX = this.getTextWidth(this.userName) + 3; // +3 for ": " and space
     term.moveTo(
       inputStartX,
       this.messageAreaHeight + 1 + this.spinnerLineHeight

@@ -16,6 +16,7 @@
     "@little-samo/samo-ai-repository-storage": "0.0.9-rv2",
     "commander": "^13.1.0",
     "dotenv": "^16.5.0",
+    "string-width": "^7.2.0",
     "terminal-kit": "^3.1.2"
   },
   "devDependencies": {
