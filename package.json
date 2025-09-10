@@ -12,7 +12,7 @@
     "lint": "eslint --fix"
   },
   "dependencies": {
-    "@little-samo/samo-ai": "0.0.9",
+    "@little-samo/samo-ai": "0.2.0",
     "@little-samo/samo-ai-repository-storage": "0.0.9-rv2",
     "commander": "^13.1.0",
     "dotenv": "^16.5.0",
