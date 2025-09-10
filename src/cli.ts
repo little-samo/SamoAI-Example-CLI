@@ -19,7 +19,6 @@ import {
 } from '@little-samo/samo-ai-repository-storage';
 import { Command } from 'commander';
 import * as dotenv from 'dotenv';
-// import stringWidth from 'string-width'; // ES Module issue - using fallback
 import { terminal as term } from 'terminal-kit';
 
 import * as packageJson from '../package.json';
@@ -59,6 +58,7 @@ class TerminalUI {
   private readonly spinnerLineHeight = 1;
   private readonly inputLineHeight = 1;
   private readonly minScreenHeight = 10;
+  private stringWidth: ((text: string) => number) | null = null;
 
   public constructor(
     private userName: string,
@@ -75,8 +75,24 @@ class TerminalUI {
 
     // Initialize screen dimensions
     this.handleResize();
+    
+    // Initialize stringWidth function
+    this.stringWidth = (text: string) => text.length;
   }
 
+  /**
+   * Initialize stringWidth function from ES Module
+   */
+  private async initializeStringWidth() {
+    try {
+      const { default: stringWidth } = await import('string-width');
+      this.stringWidth = stringWidth;
+    } catch (error) {
+      console.error('Failed to load string-width:', error);
+      // Fallback to simple character count
+      this.stringWidth = (text: string) => text.length;
+    }
+  }
 
   /**
    * Recalculates layout when terminal is resized
@@ -104,12 +120,13 @@ class TerminalUI {
 
   /**
    * Gets the actual display width of text (handles multi-byte characters)
-   * Fallback implementation for ES Module compatibility
    */
   private getTextWidth(text: string): number {
-    // Simple fallback - counts characters (not perfect for multi-byte but works)
-    // In a real implementation, you'd want to use a proper string-width library
-    return text.length;
+    if (!this.stringWidth) {
+      // Fallback to simple character count if stringWidth not loaded yet
+      return text.length;
+    }
+    return this.stringWidth(text);
   }
 
   /**
