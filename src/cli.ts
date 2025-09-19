@@ -2,7 +2,7 @@ import path from 'path';
 
 import {
   LocationId,
-  WorldManager,
+  SamoAI,
   UserId,
   LocationMessage,
   EntityType,
@@ -19,7 +19,6 @@ import {
 } from '@little-samo/samo-ai-repository-storage';
 import { Command } from 'commander';
 import * as dotenv from 'dotenv';
-import stringWidth from 'string-width';
 import { terminal as term } from 'terminal-kit';
 
 import * as packageJson from '../package.json';
@@ -59,6 +58,7 @@ class TerminalUI {
   private readonly spinnerLineHeight = 1;
   private readonly inputLineHeight = 1;
   private readonly minScreenHeight = 10;
+  private stringWidth: ((text: string) => number) | null = null;
 
   public constructor(
     private userName: string,
@@ -75,6 +75,23 @@ class TerminalUI {
 
     // Initialize screen dimensions
     this.handleResize();
+    
+    // Initialize stringWidth function
+    this.stringWidth = (text: string) => text.length;
+  }
+
+  /**
+   * Initialize stringWidth function from ES Module
+   */
+  private async initializeStringWidth() {
+    try {
+      const { default: stringWidth } = await import('string-width');
+      this.stringWidth = stringWidth;
+    } catch (error) {
+      console.error('Failed to load string-width:', error);
+      // Fallback to simple character count
+      this.stringWidth = (text: string) => text.length;
+    }
   }
 
   /**
@@ -105,12 +122,17 @@ class TerminalUI {
    * Gets the actual display width of text (handles multi-byte characters)
    */
   private getTextWidth(text: string): number {
-    return stringWidth(text);
+    if (!this.stringWidth) {
+      // Fallback to simple character count if stringWidth not loaded yet
+      return text.length;
+    }
+    return this.stringWidth(text);
   }
 
   /**
    * Truncates text to fit within the specified display width
    */
+  
   private truncateTextToWidth(
     text: string,
     maxWidth: number
@@ -598,7 +620,7 @@ class TerminalUI {
 
           try {
             // Then submit to server
-            await WorldManager.instance.addLocationUserMessage(
+            await SamoAI.instance.addLocationUserMessage(
               this.locationId,
               this.userId,
               this.userName,
@@ -723,14 +745,14 @@ class TerminalUI {
    */
   public async loadInitialMessages() {
     try {
-      const messagesState =
-        await this.locationStorage.getOrCreateLocationMessagesState(
-          this.locationId
-        );
+      const messages = await (this.locationStorage as any).getLocationMessages(
+        this.locationId,
+        100 // Load up to 100 messages
+      );
 
-      if (messagesState?.messages?.length > 0) {
+      if (messages?.length > 0) {
         // Load messages into buffer
-        for (const message of messagesState.messages) {
+        for (const message of messages) {
           if (message && message.message && message.name) {
             this.messageBuffer.push({
               name: message.name,
@@ -884,7 +906,7 @@ async function bootstrap() {
     path.join(process.cwd(), 'states', 'users')
   );
 
-  WorldManager.initialize({
+  SamoAI.initialize({
     agentRepository: agentStorage,
     gimmickRepository: gimmickStorage,
     itemRepository: itemStorage,
@@ -975,7 +997,7 @@ async function bootstrap() {
               locationState.pauseUpdateUntil &&
               new Date(locationState.pauseUpdateUntil) <= now
             ) {
-              await WorldManager.instance.updateLocation(userId, locationId, {
+              await SamoAI.instance.updateLocation(userId, locationId, {
                 preAction: async (location: Location) => {
                   // Setup message and thinking event handlers
                   terminalUI!.setMessageEventHandlers(location);
