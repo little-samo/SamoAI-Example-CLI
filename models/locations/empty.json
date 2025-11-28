@@ -4,7 +4,6 @@
   "meta": {
     "core": "round_robin",
     "description": "A simple open conversation space where multiple agents interact with a single user. This is a neutral environment designed for collaborative dialogue.",
-    "messageLengthLimit": 500,
     "rules": [
       "Agents should collaborate when appropriate to provide the best user experience"
     ]

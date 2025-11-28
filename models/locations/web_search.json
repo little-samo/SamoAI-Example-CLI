@@ -5,7 +5,6 @@
   "meta": {
     "core": "round_robin",
     "description": "A specialized environment where agents assist the user with web-based information retrieval. Agents work together to provide accurate and helpful search results.",
-    "messageLengthLimit": 500,
     "rules": [
       "Agents should collaborate when appropriate to provide the best user experience"
     ],
