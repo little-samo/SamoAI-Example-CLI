@@ -9,6 +9,8 @@ import {
   Location,
   AgentId,
   Agent,
+  Gimmick,
+  Entity,
 } from '@little-samo/samo-ai';
 import {
   AgentStorage,
@@ -38,6 +40,38 @@ interface TextSegment {
   isDim: boolean;
 }
 
+// Known control key names from terminal-kit that should not be treated as character input
+const CONTROL_KEYS = new Set([
+  'ENTER',
+  'KP_ENTER',
+  'BACKSPACE',
+  'DELETE',
+  'TAB',
+  'ESCAPE',
+  'UP',
+  'DOWN',
+  'LEFT',
+  'RIGHT',
+  'HOME',
+  'END',
+  'PAGE_UP',
+  'PAGE_DOWN',
+  'INSERT',
+  'SHIFT_TAB',
+  'F1',
+  'F2',
+  'F3',
+  'F4',
+  'F5',
+  'F6',
+  'F7',
+  'F8',
+  'F9',
+  'F10',
+  'F11',
+  'F12',
+]);
+
 /**
  * Terminal UI for interacting with SamoAI agents
  * Handles terminal display, input management, and message rendering
@@ -47,17 +81,21 @@ class TerminalUI {
   private entityColorMap = new Map<string, string>();
   private isRunning = true;
   private _thinkingAgentName: string | null = null;
-  private thinkingIntervalId: NodeJS.Timeout | null = null;
-  private inputActive = false;
+  private _executingGimmicks = new Map<string, string>();
+  private statusIntervalId: NodeJS.Timeout | null = null;
   private currentUserInput = '';
-  private inputController: ReturnType<typeof term.inputField> | null = null;
   private messageBuffer: { name: string; message: string }[] = [];
   private readonly messageBufferSize = 100;
   private saveCount = 0;
   private messageAreaHeight = 0;
-  private readonly spinnerLineHeight = 1;
+  private readonly statusLineHeight = 1;
   private readonly inputLineHeight = 1;
   private readonly minScreenHeight = 10;
+  private isRedirectingConsole = false;
+
+  private readonly originalConsoleLog = console.log;
+  private readonly originalConsoleError = console.error;
+  private readonly originalConsoleWarn = console.warn;
 
   public constructor(
     private userName: string,
@@ -65,38 +103,138 @@ class TerminalUI {
     private userId: UserId,
     private locationStorage: LocationStorage
   ) {
-    // Configure terminal
+    this.interceptConsole();
+
     term.fullscreen(true);
     term.grabInput({ mouse: 'button' });
-    term.hideCursor(true);
-    term.on('key', this.handleKeyPress.bind(this));
+    term.hideCursor(false);
+    term.on('key', this.handleKeyInput.bind(this));
     term.on('resize', this.handleResize.bind(this));
 
-    // Initialize screen dimensions
     this.handleResize();
+    this.startStatusAnimation();
+  }
+
+  /**
+   * Redirects console.log/error/warn into the message buffer
+   * so stray output from libraries doesn't corrupt the fullscreen UI.
+   */
+  private interceptConsole() {
+    console.log = (...args: unknown[]) => {
+      if (this.isRedirectingConsole) return;
+      this.isRedirectingConsole = true;
+      this.addMessage('Log', args.map(String).join(' '));
+      this.isRedirectingConsole = false;
+    };
+    console.error = (...args: unknown[]) => {
+      if (this.isRedirectingConsole) return;
+      this.isRedirectingConsole = true;
+      this.addMessage('Error', args.map(String).join(' '));
+      this.isRedirectingConsole = false;
+    };
+    console.warn = (...args: unknown[]) => {
+      if (this.isRedirectingConsole) return;
+      this.isRedirectingConsole = true;
+      this.addMessage('Warning', args.map(String).join(' '));
+      this.isRedirectingConsole = false;
+    };
+  }
+
+  private restoreConsole() {
+    console.log = this.originalConsoleLog;
+    console.error = this.originalConsoleError;
+    console.warn = this.originalConsoleWarn;
   }
 
   /**
    * Recalculates layout when terminal is resized
    */
   private handleResize() {
-    // Reserve space for spinner and input
     this.messageAreaHeight = Math.max(
       this.minScreenHeight,
-      term.height - this.spinnerLineHeight - this.inputLineHeight
+      term.height - this.statusLineHeight - this.inputLineHeight
     );
 
-    // Complete redraw on resize
     this.clearScreen();
-    this.redrawUI(this.currentUserInput);
+    this.redrawUI();
   }
 
   /**
-   * Handles keyboard inputs (e.g., Ctrl+C to exit)
+   * Handles all keyboard input: character entry, backspace, enter, ctrl+c.
+   * Replaces terminal-kit's inputField so we always know the current
+   * input buffer and can redraw without losing user text.
    */
-  private handleKeyPress(name: string) {
+  private handleKeyInput(name: string) {
+    if (!this.isRunning) return;
+
     if (name === 'CTRL_C') {
       void this.shutdown();
+      return;
+    }
+
+    if (name === 'ENTER' || name === 'KP_ENTER') {
+      void this.submitInput();
+      return;
+    }
+
+    if (name === 'BACKSPACE') {
+      if (this.currentUserInput.length > 0) {
+        this.currentUserInput = this.currentUserInput.slice(0, -1);
+        this.refreshInputLine();
+      }
+      return;
+    }
+
+    if (this.isControlKey(name)) return;
+
+    const inputStartX = this.getTextWidth(this.userName) + 3;
+    const maxInputWidth = term.width - inputStartX - 1;
+    if (this.getTextWidth(this.currentUserInput + name) <= maxInputWidth) {
+      this.currentUserInput += name;
+      this.refreshInputLine();
+    }
+  }
+
+  private isControlKey(name: string): boolean {
+    if (CONTROL_KEYS.has(name)) return true;
+    if (name.startsWith('CTRL_')) return true;
+    if (name.startsWith('ALT_')) return true;
+    if (name.startsWith('SHIFT_')) return true;
+    if (name.startsWith('KP_')) return true;
+    if (name.charCodeAt(0) < 32) return true;
+    return false;
+  }
+
+  /**
+   * Submits the current input text as a user message
+   */
+  private async submitInput() {
+    const submittedText = this.currentUserInput.trim();
+    this.currentUserInput = '';
+    this.refreshInputLine();
+
+    if (!submittedText) return;
+
+    this.messageBuffer.push({
+      name: this.userName,
+      message: submittedText,
+    });
+    this.redrawMessageArea();
+
+    try {
+      await SamoAI.instance.addLocationUserMessage(
+        this.locationId,
+        this.userId,
+        this.userName,
+        submittedText
+      );
+      await this.locationStorage.updateLocationStatePauseUpdateUntil(
+        this.locationId,
+        new Date(Date.now() + 500)
+      );
+    } catch (e) {
+      const errMessage = e instanceof Error ? e.message : String(e);
+      this.addMessage('Error', errMessage);
     }
   }
 
@@ -296,37 +434,92 @@ class TerminalUI {
     term.clear();
   }
 
-  /**
-   * Draws the thinking animation for active agents
-   */
-  private drawSpinnerLine() {
-    if (!this._thinkingAgentName) return;
-
-    term.moveTo(1, this.messageAreaHeight + 1).eraseLine();
-    const dots = Math.floor(Date.now() / 500) % 3;
-    const dotsStr = '.'.repeat(dots + 1);
-    term.gray(`[${this._thinkingAgentName}] is thinking${dotsStr}`);
+  private get hasActiveStatus(): boolean {
+    return this._thinkingAgentName !== null || this._executingGimmicks.size > 0;
   }
 
   /**
-   * Draws the user input line with appropriate styling
+   * Periodically redraws the status line to animate the dots
+   */
+  private startStatusAnimation() {
+    this.statusIntervalId = setInterval(() => {
+      if (!this.isRunning || !this.hasActiveStatus) return;
+      term.saveCursor();
+      term.hideCursor();
+      this.drawStatusLine();
+      term.restoreCursor();
+      term.hideCursor(false);
+    }, 500);
+  }
+
+  /**
+   * Draws the combined status line for agent thinking and gimmick execution
+   */
+  private drawStatusLine() {
+    term.moveTo(1, this.messageAreaHeight + 1).eraseLine();
+
+    const parts: string[] = [];
+    const dots = '.'.repeat((Math.floor(Date.now() / 500) % 3) + 1);
+
+    if (this._thinkingAgentName) {
+      parts.push(`[${this._thinkingAgentName}] is thinking${dots}`);
+    }
+
+    for (const [, gimmickName] of this._executingGimmicks) {
+      parts.push(`[${gimmickName}] executing${dots}`);
+    }
+
+    if (parts.length > 0) {
+      term.gray(parts.join(' | '));
+    }
+  }
+
+  /**
+   * Applies a color to text output
+   */
+  private applyEntityColor(name: string, text: string) {
+    const color = this.getColorForEntity(name);
+    if (color === 'yellow') term.bold.yellow(text);
+    else if (color === 'green') term.bold.green(text);
+    else if (color === 'magenta') term.bold.magenta(text);
+    else if (color === 'blue') term.bold.blue(text);
+    else if (color === 'cyan') term.bold.cyan(text);
+    else if (color === 'red') term.bold.red(text);
+    else term.bold.yellow(text);
+  }
+
+  /**
+   * Draws the user input line with the current input text and cursor
    */
   private drawInputLine() {
     term
-      .moveTo(1, this.messageAreaHeight + 1 + this.spinnerLineHeight)
+      .moveTo(1, this.messageAreaHeight + 1 + this.statusLineHeight)
       .eraseLine();
 
-    // Apply the appropriate color to the username
-    const userColor = this.getColorForEntity(this.userName);
-    if (userColor === 'yellow') term.bold.yellow(this.userName);
-    else if (userColor === 'green') term.bold.green(this.userName);
-    else if (userColor === 'magenta') term.bold.magenta(this.userName);
-    else if (userColor === 'blue') term.bold.blue(this.userName);
-    else if (userColor === 'cyan') term.bold.cyan(this.userName);
-    else if (userColor === 'red') term.bold.red(this.userName);
-    else term.bold.yellow(this.userName);
+    this.applyEntityColor(this.userName, this.userName);
+    term.white(':').styleReset().white(' ');
+    term.white(this.currentUserInput);
+  }
 
-    term.white(':').styleReset().white(' '); // Ensure space after colon
+  /**
+   * Efficiently redraws only the input line, preserving user text
+   */
+  private refreshInputLine() {
+    if (!this.isRunning) return;
+    term.saveCursor();
+    term.hideCursor();
+    this.drawInputLine();
+    this.positionCursor();
+    term.hideCursor(false);
+  }
+
+  /**
+   * Positions the terminal cursor at the end of current user input
+   */
+  private positionCursor() {
+    const inputStartX = this.getTextWidth(this.userName) + 3;
+    const cursorX = inputStartX + this.getTextWidth(this.currentUserInput);
+    term.moveTo(cursorX, this.messageAreaHeight + 1 + this.statusLineHeight);
   }
 
   /**
@@ -418,15 +611,7 @@ class TerminalUI {
         // First line (with the name prefix)
         term.moveTo(1, currentLine);
 
-        // Apply the appropriate color to the entity name
-        const color = this.getColorForEntity(name);
-        if (color === 'yellow') term.bold.yellow(name);
-        else if (color === 'green') term.bold.green(name);
-        else if (color === 'magenta') term.bold.magenta(name);
-        else if (color === 'blue') term.bold.blue(name);
-        else if (color === 'cyan') term.bold.cyan(name);
-        else if (color === 'red') term.bold.red(name);
-        else term.bold.yellow(name);
+        this.applyEntityColor(name, name);
 
         term.white(':').styleReset().white(' ');
         // Render the first line with proper styling
@@ -459,167 +644,25 @@ class TerminalUI {
   }
 
   /**
-   * Completely redraws the UI, preserving user input if needed
+   * Completely redraws the UI including messages, status, and input line.
+   * Input text is always preserved because we track it in currentUserInput
+   * instead of relying on terminal-kit's inputField.
    */
-  private redrawUI(preserveInput?: string) {
+  private redrawUI() {
     if (!this.isRunning) return;
 
-    // Save the current input state - capture exactly what the user is typing
-    let inputToPreserve =
-      typeof preserveInput === 'string' ? preserveInput : '';
-
-    if (typeof preserveInput !== 'string' && this.inputActive) {
-      inputToPreserve = this.currentUserInput;
-    }
-
-    // Temporarily disable input
-    if (this.inputActive && this.inputController) {
-      const controllerToAbort = this.inputController;
-      this.inputController = null;
-      this.inputActive = false;
-      // Store the current input before aborting
-      this.currentUserInput = inputToPreserve;
-      controllerToAbort.abort();
-    }
-
-    // Redraw all UI components with full control
     term.hideCursor();
-
-    // Make sure we're not in alternate screen or any strange state
     term.styleReset();
 
-    // Clear the entire screen to avoid artifacts
     for (let i = 1; i <= term.height; i++) {
       term.moveTo(1, i).eraseLine();
     }
 
-    // Redraw message area
     this.redrawMessageArea();
-
-    // Clear and redraw the spinner line
-    term.moveTo(1, this.messageAreaHeight + 1).eraseLine();
-    if (this._thinkingAgentName) {
-      this.drawSpinnerLine();
-    }
-
-    // Clear and redraw the input line
-    term
-      .moveTo(1, this.messageAreaHeight + 1 + this.spinnerLineHeight)
-      .eraseLine();
+    this.drawStatusLine();
     this.drawInputLine();
-
+    this.positionCursor();
     term.hideCursor(false);
-
-    // Ensure input state is preserved
-    if (inputToPreserve) {
-      this.currentUserInput = inputToPreserve;
-    }
-
-    // Give the terminal a moment to stabilize
-    setTimeout(() => {
-      // Activate or reactivate input field
-      this.activateInput();
-    }, 10);
-  }
-
-  /**
-   * Activates or reactivates the user input field
-   */
-  private activateInput() {
-    if (!this.isRunning) return;
-
-    // Store the current input before canceling
-    const inputToPreserve = this.currentUserInput;
-
-    // Cancel any existing input controller
-    if (this.inputController) {
-      const controllerToAbort = this.inputController;
-      this.inputController = null;
-      controllerToAbort.abort();
-    }
-
-    // Ensure the input line is clear
-    term
-      .moveTo(1, this.messageAreaHeight + 1 + this.spinnerLineHeight)
-      .eraseLine();
-    this.drawInputLine();
-
-    // Position cursor correctly - ensure it's after "User: "
-    const inputStartX = this.getTextWidth(this.userName) + 3; // +3 for ": " and space
-    term.moveTo(
-      inputStartX,
-      this.messageAreaHeight + 1 + this.spinnerLineHeight
-    );
-
-    // Ensure we're in the right state
-    term.styleReset();
-    term.hideCursor(false);
-
-    this.inputActive = true;
-    this.inputController = term.inputField(
-      {
-        default: inputToPreserve, // Use preserved input
-        cancelable: true,
-        minLength: 0,
-        maxLength: term.width - inputStartX - 1,
-      },
-      async (error: unknown, userInput?: string) => {
-        const wasProgrammaticallyAborted = this.inputController === null;
-
-        this.inputActive = false;
-        this.inputController = null;
-
-        // Only update the input buffer if not programmatically aborted
-        if (!wasProgrammaticallyAborted) {
-          this.currentUserInput = userInput || '';
-        }
-
-        if (error) {
-          // If not programmatically aborted, redraw
-          if (!wasProgrammaticallyAborted && this.isRunning) {
-            setTimeout(() => this.redrawUI(this.currentUserInput), 0);
-          }
-          return;
-        }
-
-        // Process user submission
-        const submittedText = this.currentUserInput.trim();
-        this.currentUserInput = ''; // Clear for next input
-
-        if (submittedText) {
-          // Immediately add to buffer to show locally
-          this.messageBuffer.push({
-            name: this.userName,
-            message: submittedText,
-          });
-
-          // Redraw UI to show the user's message immediately
-          this.redrawUI();
-
-          try {
-            // Then submit to server
-            await SamoAI.instance.addLocationUserMessage(
-              this.locationId,
-              this.userId,
-              this.userName,
-              submittedText
-            );
-            await this.locationStorage.updateLocationStatePauseUpdateUntil(
-              this.locationId,
-              new Date(Date.now() + 500)
-            );
-          } catch (e) {
-            const errMessage = e instanceof Error ? e.message : String(e);
-            this.addMessage('Error', errMessage);
-          }
-        } else {
-          // Even on empty input, redraw for next input
-          if (this.isRunning) {
-            setTimeout(() => this.redrawUI(), 0);
-          }
-        }
-      }
-    );
   }
 
   public get thinkingAgentName(): string | null {
@@ -630,38 +673,10 @@ class TerminalUI {
    * Displays a thinking indicator for an agent
    */
   public startThinking(agentName: string) {
-    // Don't start thinking if shutting down
     if (!this.isRunning) return;
-
-    // Save current input state
-    const inputToPreserve = this.inputActive ? this.currentUserInput : '';
-
-    // Set thinking state
     this._thinkingAgentName = agentName;
+    this.drawStatusLine();
 
-    if (this.thinkingIntervalId) {
-      clearInterval(this.thinkingIntervalId);
-    }
-
-    this.thinkingIntervalId = setInterval(() => {
-      // Only update the spinner line if we're still running
-      if (!this.isRunning) return;
-
-      term.saveCursor();
-      term.hideCursor();
-      term.moveTo(1, this.messageAreaHeight + 1).eraseLine();
-      this.drawSpinnerLine();
-      term.restoreCursor();
-      term.hideCursor(false);
-    }, 500);
-
-    // Save the user input before redraw
-    this.currentUserInput = inputToPreserve;
-
-    // Do a full redraw to show spinner and preserve input
-    this.redrawUI(inputToPreserve);
-
-    // Auto-stop spinner after timeout (15 seconds)
     setTimeout(() => {
       if (this._thinkingAgentName === agentName && this.isRunning) {
         this.stopThinking();
@@ -673,49 +688,52 @@ class TerminalUI {
    * Stops the thinking indicator
    */
   public stopThinking() {
-    // Store current input before state change
-    const inputToPreserve = this.inputActive ? this.currentUserInput : '';
-
-    if (this.thinkingIntervalId) {
-      clearInterval(this.thinkingIntervalId);
-      this.thinkingIntervalId = null;
-    }
-
     this._thinkingAgentName = null;
+    term.saveCursor();
+    term.hideCursor();
+    this.drawStatusLine();
+    term.restoreCursor();
+    term.hideCursor(false);
+  }
 
-    // Clear spinner line
-    term.moveTo(1, this.messageAreaHeight + 1).eraseLine();
+  /**
+   * Shows an executing indicator for a gimmick
+   */
+  public startGimmickExecution(gimmickKey: string, gimmickName: string) {
+    if (!this.isRunning) return;
+    this._executingGimmicks.set(gimmickKey, gimmickName);
+    term.saveCursor();
+    term.hideCursor();
+    this.drawStatusLine();
+    term.restoreCursor();
+    term.hideCursor(false);
+  }
 
-    // Save the user input before redraw
-    this.currentUserInput = inputToPreserve;
-
-    // Do a full redraw to clear spinner and preserve input
-    this.redrawUI(inputToPreserve);
+  /**
+   * Hides the executing indicator for a gimmick
+   */
+  public stopGimmickExecution(gimmickKey: string) {
+    this._executingGimmicks.delete(gimmickKey);
+    term.saveCursor();
+    term.hideCursor();
+    this.drawStatusLine();
+    term.restoreCursor();
+    term.hideCursor(false);
   }
 
   /**
    * Adds a message to the display
    */
   public addMessage(name: string, message: string) {
-    // Don't add messages if shutting down
     if (!this.isRunning) return;
 
-    // Save current input - make sure to capture from input field if active
-    const currentInput = this.inputActive ? this.currentUserInput : '';
-
-    // Add to buffer
     this.messageBuffer.push({ name, message });
 
-    // Trim buffer if needed
     if (this.messageBuffer.length > this.messageBufferSize) {
       this.messageBuffer = this.messageBuffer.slice(-this.messageBufferSize);
     }
 
-    // Set current input before redraw
-    this.currentUserInput = currentInput;
-
-    // Always do a full redraw to ensure message display is consistent
-    this.redrawUI(currentInput);
+    this.redrawUI();
   }
 
   /**
@@ -767,34 +785,21 @@ class TerminalUI {
    * Gracefully shuts down the terminal UI
    */
   public async shutdown() {
-    // Don't shutdown if already shutting down
     if (!this.isRunning) return;
-
-    // Set running state to false first to prevent new messages and UI updates
     this.isRunning = false;
 
-    // Cancel any active input
-    if (this.inputController) {
-      const controllerToAbort = this.inputController;
-      this.inputController = null;
-      controllerToAbort.abort();
+    if (this.statusIntervalId) {
+      clearInterval(this.statusIntervalId);
+      this.statusIntervalId = null;
     }
 
-    // Stop thinking animation
-    if (this.thinkingIntervalId) {
-      clearInterval(this.thinkingIntervalId);
-      this.thinkingIntervalId = null;
-    }
-
-    // Release terminal
     term.grabInput(false);
+    this.restoreConsole();
 
-    // Clear screen
     term.clear();
     term.moveTo(1, 1);
     term('Shutting down...\n');
 
-    // Wait for saves to complete if any
     if (this.saveCount > 0) {
       term(`Waiting for save to complete... (${this.saveCount})\n`);
       let prevSaveCount = this.saveCount;
@@ -816,10 +821,9 @@ class TerminalUI {
   }
 
   /**
-   * Sets up event handlers for location messages and agent updates
+   * Sets up event handlers for location messages, agent updates, and gimmick execution
    */
   public setMessageEventHandlers(location: Location) {
-    // Listen for new messages
     location.on(
       'messageAdded',
       async (_loc: Location, message: LocationMessage) => {
@@ -827,21 +831,29 @@ class TerminalUI {
           return;
         }
 
-        // If message is from thinking agent, stop spinner
         if (message.name === this.thinkingAgentName) {
           this.stopThinking();
         }
 
-        // Add message to UI - ensure name is a string
         const displayName = message.name || 'Unknown';
         this.addMessage(displayName, message.message);
       }
     );
 
-    // Listen for agent thinking
     location.on('agentExecuteNextActions', async (agent: Agent) => {
-      // Show thinking status
       this.startThinking(agent.model.name);
+    });
+
+    location.on('gimmickExecuting', (gimmick: Gimmick, _entity: Entity) => {
+      this.startGimmickExecution(gimmick.key, gimmick.name);
+    });
+
+    location.on('gimmickExecuted', (gimmick: Gimmick) => {
+      this.stopGimmickExecution(gimmick.key);
+    });
+
+    location.on('gimmickExecutionFailed', (gimmick: Gimmick) => {
+      this.stopGimmickExecution(gimmick.key);
     });
   }
 }
@@ -984,6 +996,13 @@ async function bootstrap() {
                   terminalUI!.incrementSaveCount();
                   try {
                     await save;
+                  } catch (error) {
+                    const errMessage =
+                      error instanceof Error ? error.message : String(error);
+                    terminalUI!.addMessage(
+                      'Error',
+                      `Save failed: ${errMessage}`
+                    );
                   } finally {
                     terminalUI!.decrementSaveCount();
                   }
