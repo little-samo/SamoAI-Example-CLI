@@ -82,6 +82,11 @@ class TerminalUI {
   private isRunning = true;
   private _thinkingAgentName: string | null = null;
   private _executingGimmicks = new Map<string, string>();
+  private _streamingMessages = new Map<
+    string,
+    { ref: { name: string; message: string } }
+  >();
+  private _streamRedrawPending = false;
   private statusIntervalId: NodeJS.Timeout | null = null;
   private currentUserInput = '';
   private messageBuffer: { name: string; message: string }[] = [];
@@ -722,6 +727,65 @@ class TerminalUI {
   }
 
   /**
+   * Handles an incremental streaming delta from an agent's message generation.
+   * On the first delta the thinking indicator is replaced by a live message entry.
+   */
+  public handleStreamDelta(agentName: string, delta: string) {
+    if (!this.isRunning) return;
+
+    let entry = this._streamingMessages.get(agentName);
+
+    if (!entry) {
+      if (this._thinkingAgentName === agentName) {
+        this._thinkingAgentName = null;
+      }
+      const msgObj = { name: agentName, message: '' };
+      this.messageBuffer.push(msgObj);
+      if (this.messageBuffer.length > this.messageBufferSize) {
+        this.messageBuffer = this.messageBuffer.slice(-this.messageBufferSize);
+      }
+      entry = { ref: msgObj };
+      this._streamingMessages.set(agentName, entry);
+    }
+
+    entry.ref.message += delta;
+    this.scheduleStreamRedraw();
+  }
+
+  /**
+   * Replaces the in-progress streaming entry with the final message text,
+   * or falls back to addMessage if there was no streaming session.
+   */
+  public finalizeStreamingMessage(name: string, finalMessage: string): boolean {
+    const entry = this._streamingMessages.get(name);
+    if (!entry) return false;
+
+    entry.ref.message = finalMessage;
+    this._streamingMessages.delete(name);
+    this.scheduleStreamRedraw();
+    return true;
+  }
+
+  /**
+   * Throttles redraws during streaming to ~20 fps to avoid flicker
+   */
+  private scheduleStreamRedraw() {
+    if (this._streamRedrawPending) return;
+    this._streamRedrawPending = true;
+    setTimeout(() => {
+      this._streamRedrawPending = false;
+      if (!this.isRunning) return;
+      term.saveCursor();
+      term.hideCursor();
+      this.redrawMessageArea();
+      this.drawStatusLine();
+      this.drawInputLine();
+      this.positionCursor();
+      term.hideCursor(false);
+    }, 50);
+  }
+
+  /**
    * Adds a message to the display
    */
   public addMessage(name: string, message: string) {
@@ -831,11 +895,16 @@ class TerminalUI {
           return;
         }
 
+        const displayName = message.name || 'Unknown';
+
+        if (this.finalizeStreamingMessage(displayName, message.message)) {
+          return;
+        }
+
         if (message.name === this.thinkingAgentName) {
           this.stopThinking();
         }
 
-        const displayName = message.name || 'Unknown';
         this.addMessage(displayName, message.message);
       }
     );
@@ -843,6 +912,20 @@ class TerminalUI {
     location.on('agentExecuteNextActions', async (agent: Agent) => {
       this.startThinking(agent.model.name);
     });
+
+    location.on(
+      'agentSendMessageStream',
+      (
+        agent: Agent,
+        _entityKey: unknown,
+        _toolName: string,
+        _index: number,
+        _sequence: number,
+        delta: string
+      ) => {
+        this.handleStreamDelta(agent.model.name, delta);
+      }
+    );
 
     location.on('gimmickExecuting', (gimmick: Gimmick, _entity: Entity) => {
       this.startGimmickExecution(gimmick.key, gimmick.name);
