@@ -19,14 +19,6 @@
 - Support for multiple agents that retain their personality and memory
 - Easy-to-use command line interface
 
-<div align="center">
-  <img src="https://media.githubusercontent.com/media/little-samo/CI/master/assets/examples/repositories/SamoAI-Example-CLI/demo/web.gif" alt="Demo of Web Search Gimmick" width="600" />
-  <p><em>Web Search Gimmick Demo</em></p>
-  
-  <img src="https://media.githubusercontent.com/media/little-samo/CI/master/assets/examples/repositories/SamoAI-Example-CLI/demo/x.gif" alt="Demo of MCP Integration" width="600" />
-  <p><em>MCP Integration Demo</em></p>
-</div>
-
 ## Installation
 
 1. Install dependencies:
