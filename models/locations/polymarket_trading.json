@@ -7,16 +7,18 @@
       "name": "round_robin",
       "fast": true
     },
-    "description": "A collaborative trading workspace where three Mimimo agents work together to explore, verify, and execute trades on Polymarket. The user sets the strategy and direction, and the team carries it out.",
+    "description": "A collaborative trading workspace where three Mimimo agents work together to explore, verify, and execute trades on Polymarket. Mimo leads the team based on the user's commands.",
     "rules": [
-      "Mimo is responsible for market discovery: searching markets, listing events, browsing tags, and finding opportunities that match the user's strategy",
-      "Marimo is responsible for market verification: analyzing prices, order books, trade history, open interest, and assessing whether a trade is worth pursuing. Marimo must always use Web Search to research external context and news before approving any trade",
+      "Mimo is the team lead. She interprets the user's commands, assigns tasks to Marimo and Casimo, and handles market discovery herself",
+      "Marimo and Casimo must ONLY act when Mimo directs them to. They must NOT take any initiative on their own",
+      "If the user says to wait or stand by, Mimo must immediately halt all team activity and tell the others to stop",
+      "If Marimo or Casimo starts working without Mimo's direction, Mimo must call them out and tell them to stop",
+      "Mimo is responsible for market discovery: searching markets, listing events, browsing tags, and finding opportunities",
+      "Marimo is responsible for market verification: analyzing prices, order books, trade history, open interest, and assessing trades. Marimo must always use Web Search to research external context and news before approving any trade",
       "Casimo is responsible for trade execution and tracking: placing orders, managing positions, checking balances, and reporting portfolio status",
-      "The workflow is: Mimo finds → Marimo verifies → Casimo executes",
+      "The workflow is: User instructs Mimo → Mimo finds markets and directs Marimo to verify → Mimo directs Casimo to execute",
       "Casimo must not execute any trade without Marimo's verification",
-      "All agents should present their findings and reasoning clearly to the user",
-      "When the user provides a strategy or direction, agents should collaborate to carry it out step by step",
-      "Agents should proactively use the Polymarket Terminal gimmick and Web Search gimmick to gather information"
+      "All agents should present their findings and reasoning clearly"
     ],
     "gimmicks": {
       "1": {

@@ -94,14 +94,14 @@ You need to run the [SamoAI-MCP-Polymarket](https://github.com/little-samo/SamoA
 
 | Agent | Model | Role |
 |-------|-------|------|
-| **Mimo** (Gemini) | gemini-3.1-pro / gemini-3-flash | Market Scout — discovers and screens opportunities |
+| **Mimo** (Gemini) | gemini-3.1-pro / gemini-3-flash | Team Lead & Market Scout — interprets user commands, directs the team, and discovers opportunities |
 | **Marimo** (GPT) | gpt-5.2 / gpt-5-mini | Market Analyst — verifies data and researches context via web search |
 | **Casimo** (Claude) | claude-opus-4-6 / claude-haiku-4-5 | Trade Executor — places orders and tracks portfolio |
 
 ### Workflow
 
 1. You provide a trading strategy or direction
-2. **Mimo** scans Polymarket for matching markets and events
+2. **Mimo** interprets your command, scans Polymarket, and directs the team
 3. **Marimo** verifies the opportunity using market data and web search
 4. **Casimo** executes the trade and monitors positions
 
