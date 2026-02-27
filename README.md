@@ -90,6 +90,35 @@ npm run chat -- -- --location custom_location
 
 > **Important:** Remember to include both sets of double dashes (`-- --`) when passing arguments to the chat command.
 
+## Polymarket Trading Example
+
+This project includes a multi-agent Polymarket trading setup where three agents collaborate to discover, verify, and execute prediction market trades.
+
+### Prerequisites
+
+You need to run the [SamoAI-MCP-Polymarket](https://github.com/little-samo/SamoAI-MCP-Polymarket) server locally. Follow the setup instructions in that repository to configure your Polymarket credentials and start the MCP server on `http://localhost:11188`.
+
+### Agents
+
+| Agent | Model | Role |
+|-------|-------|------|
+| **Mimo** (Gemini) | gemini-3.1-pro / gemini-3-flash | Market Scout — discovers and screens opportunities |
+| **Marimo** (GPT) | gpt-5.2 / gpt-5-mini | Market Analyst — verifies data and researches context via web search |
+| **Casimo** (Claude) | claude-opus-4-6 / claude-haiku-4-5 | Trade Executor — places orders and tracks portfolio |
+
+### Workflow
+
+1. You provide a trading strategy or direction
+2. **Mimo** scans Polymarket for matching markets and events
+3. **Marimo** verifies the opportunity using market data and web search
+4. **Casimo** executes the trade and monitors positions
+
+### Running
+
+```
+npm run chat -- -- --agents "mimo,marimo,casimo" --location polymarket_trading
+```
+
 ## Learn More
 
 To learn more about SamoAI, visit the [SamoAI repository](https://github.com/little-samo/SamoAI).

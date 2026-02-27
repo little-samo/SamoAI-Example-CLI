@@ -681,12 +681,6 @@ class TerminalUI {
     if (!this.isRunning) return;
     this._thinkingAgentName = agentName;
     this.drawStatusLine();
-
-    setTimeout(() => {
-      if (this._thinkingAgentName === agentName && this.isRunning) {
-        this.stopThinking();
-      }
-    }, 15000);
   }
 
   /**
@@ -913,6 +907,18 @@ class TerminalUI {
       this.startThinking(agent.model.name);
     });
 
+    location.on('agentExecutedNextActions', async (agent: Agent) => {
+      if (this.thinkingAgentName === agent.model.name) {
+        this.stopThinking();
+      }
+    });
+
+    location.on('agentExecuteNextActionsFailed', async (agent: Agent) => {
+      if (this.thinkingAgentName === agent.model.name) {
+        this.stopThinking();
+      }
+    });
+
     location.on(
       'agentSendMessageStream',
       (
@@ -927,15 +933,11 @@ class TerminalUI {
       }
     );
 
-    location.on('gimmickExecuting', (gimmick: Gimmick, _entity: Entity) => {
+    location.on('gimmickOccupied', (gimmick: Gimmick, _entity: Entity) => {
       this.startGimmickExecution(gimmick.key, gimmick.name);
     });
 
-    location.on('gimmickExecuted', (gimmick: Gimmick) => {
-      this.stopGimmickExecution(gimmick.key);
-    });
-
-    location.on('gimmickExecutionFailed', (gimmick: Gimmick) => {
+    location.on('gimmickReleased', (gimmick: Gimmick) => {
       this.stopGimmickExecution(gimmick.key);
     });
   }
