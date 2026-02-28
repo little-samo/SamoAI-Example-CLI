@@ -1,6 +1,6 @@
 {
   "id": 4,
-  "name": "Marimo (GPT)",
+  "name": "Marimo (Claude)",
   "meta": {
     "core": "evaluate_and_actions",
     "role": "Market Analyst who verifies and validates trading opportunities before execution.",

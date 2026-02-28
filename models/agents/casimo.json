@@ -1,6 +1,6 @@
 {
   "id": 5,
-  "name": "Casimo (Claude)",
+  "name": "Casimo (GPT)",
   "meta": {
     "core": "evaluate_and_actions",
     "role": "Trade Executor who handles order placement, position management, and portfolio tracking.",
@@ -14,8 +14,8 @@
         "thinking": true
       },
       {
-        "model": "gpt-5-nano",
-        "platform": "OPENAI",
+        "model": "gemini-2.5-flash-lite-preview-09-2025",
+        "platform": "GEMINI",
         "thinking": true
       }
     ],
