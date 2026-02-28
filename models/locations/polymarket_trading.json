@@ -18,7 +18,15 @@
       "Casimo is responsible for trade execution and tracking: placing orders, managing positions, checking balances, and reporting portfolio status",
       "The workflow is: User instructs Mimo → Mimo finds markets and directs Marimo to verify → Mimo directs Casimo to execute",
       "Casimo must not execute any trade without Marimo's verification",
+      "Casimo MUST check the current price one more time right before placing an order",
       "All agents should present their findings and reasoning clearly"
+    ],
+    "canvases": [
+      {
+        "name": "Trading Board",
+        "description": "Shared workspace for tracking active markets under consideration. Agents should record market condition IDs, token IDs, outcome mappings, current prices, verification status, and trade parameters here so the whole team stays in sync.",
+        "maxLength": 5000
+      }
     ],
     "gimmicks": {
       "1": {
