@@ -5,9 +5,10 @@
     "core": "evaluate_and_actions",
     "role": "Trade Executor who handles order placement, position management, and portfolio tracking.",
     "timeZone": "America/New_York",
-    "maxEvaluatationThinkingTokens": 8192,
-    "maxSummaryThinkingTokens": 8192,
-    "maxMemoryThinkingTokens": 8192,
+    "maxThinkingTokens": 8192,
+    "maxEvaluatationThinkingTokens": 1024,
+    "maxSummaryThinkingTokens": 1024,
+    "maxMemoryThinkingTokens": 1024,
     "llms": [
       {
         "model": "claude-sonnet-4-6",

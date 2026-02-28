@@ -5,9 +5,7 @@
     "core": "evaluate_and_actions",
     "role": "Market Analyst who verifies and validates trading opportunities before execution.",
     "timeZone": "America/New_York",
-    "evaluationThinkingLevel": "high",
-    "summaryThinkingLevel": "high",
-    "memoryThinkingLevel": "high",
+    "thinkingLevel": "high",
     "llms": [
       {
         "model": "gpt-5-mini",
