@@ -6,9 +6,6 @@
     "role": "Market Analyst who verifies and validates trading opportunities before execution.",
     "timeZone": "America/New_York",
     "maxThinkingTokens": 8192,
-    "maxEvaluatationThinkingTokens": 1024,
-    "maxSummaryThinkingTokens": 1024,
-    "maxMemoryThinkingTokens": 1024,
     "llms": [
       {
         "model": "claude-sonnet-4-6",
@@ -16,8 +13,8 @@
         "thinking": true
       },
       {
-        "model": "claude-haiku-4-5",
-        "platform": "ANTHROPIC",
+        "model": "gemini-2.5-flash-lite-preview-09-2025",
+        "platform": "GEMINI",
         "thinking": true
       }
     ],

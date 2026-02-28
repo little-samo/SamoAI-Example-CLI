@@ -9,6 +9,8 @@ import {
   Location,
   LocationId,
   LocationMessage,
+  LocationMission,
+  LocationObjective,
   SamoAI,
   UserId,
 } from '@little-samo/samo-ai';
@@ -109,6 +111,8 @@ export class TerminalUI {
   }[] = [];
   private selectedAgentIndex = 0;
   private agentScrollOffset = 0;
+
+  private currentMission: LocationMission | null = null;
 
   private readonly originalConsoleLog = console.log;
   private readonly originalConsoleError = console.error;
@@ -663,15 +667,56 @@ export class TerminalUI {
   private redrawMessageArea() {
     if (!this.isRunning) return;
 
-    // Calculate how many messages to display
-    const messagesToShow = this.messageBuffer.slice(
-      Math.max(0, this.messageBuffer.length - this.messageAreaHeight)
-    );
+    let availableHeight = this.messageAreaHeight;
+    let startLine = 1;
 
     // Clear the message area
     for (let i = 1; i <= this.messageAreaHeight; i++) {
       term.moveTo(1, i).eraseLine();
     }
+
+    if (this.currentMission) {
+      const { mainMission, objectives } = this.currentMission;
+      const missionLines: string[] = [];
+      missionLines.push(` 🎯 Mission: ${mainMission}`);
+      if (objectives && objectives.length > 0) {
+        for (const obj of objectives) {
+          missionLines.push(
+            `    ${obj.completed ? '[x]' : '[ ]'} ${obj.description}`
+          );
+        }
+      }
+      missionLines.push('─'.repeat(term.width));
+
+      for (
+        let i = 0;
+        i < missionLines.length && startLine <= this.messageAreaHeight;
+        i++
+      ) {
+        term.moveTo(1, startLine);
+        const rawLine = missionLines[i];
+        const truncated =
+          this.getTextWidth(rawLine) > term.width
+            ? this.truncateTextToWidth(rawLine, term.width - 2).text + '…'
+            : rawLine;
+
+        if (i === 0) term.cyan(truncated);
+        else if (i === missionLines.length - 1) term.gray(truncated);
+        else {
+          if (truncated.includes('[x]')) term.green(truncated);
+          else term.white(truncated);
+        }
+        startLine++;
+        availableHeight--;
+      }
+    }
+
+    if (availableHeight <= 0) return;
+
+    // Calculate how many messages to display
+    const messagesToShow = this.messageBuffer.slice(
+      Math.max(0, this.messageBuffer.length - availableHeight)
+    );
 
     // First pass: calculate how many lines each message will take
     let totalLinesNeeded = 0;
@@ -708,8 +753,8 @@ export class TerminalUI {
     }
 
     // If we need more lines than available, trim the messages from the beginning
-    if (totalLinesNeeded > this.messageAreaHeight) {
-      let linesRemaining = this.messageAreaHeight;
+    if (totalLinesNeeded > availableHeight) {
+      let linesRemaining = availableHeight;
       let startIndex = messageLineCounts.length - 1;
 
       while (startIndex >= 0) {
@@ -726,7 +771,7 @@ export class TerminalUI {
     }
 
     // Draw messages
-    let currentLine = 1;
+    let currentLine = startLine;
 
     for (const { name, message, isAction } of messagesToShow) {
       if (isAction) {
@@ -1342,6 +1387,8 @@ export class TerminalUI {
         this.locationId
       );
 
+      this.currentMission = state.mission || null;
+
       for (const [name, canvas] of Object.entries(state.canvases)) {
         if (canvas.text) {
           this.canvasData.set(name, canvas.text);
@@ -1504,6 +1551,24 @@ export class TerminalUI {
    * Sets up event handlers for location messages, agent updates, and gimmick execution
    */
   public setMessageEventHandlers(location: Location) {
+    location.on(
+      'missionSet',
+      async (_loc: Location, mission: LocationMission) => {
+        this.currentMission = mission;
+        this.redrawUI();
+      }
+    );
+
+    location.on(
+      'objectiveCompleted',
+      async (_loc: Location, _index: number, _objective: LocationObjective) => {
+        if (_loc.state.mission) {
+          this.currentMission = _loc.state.mission;
+        }
+        this.redrawUI();
+      }
+    );
+
     location.on('llmGenerate', (_entity: Entity, response: LlmResponseBase) => {
       this.handleLlmResponse(response);
     });
