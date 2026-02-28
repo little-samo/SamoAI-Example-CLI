@@ -1,6 +1,6 @@
 {
   "name": "samoai-example-cli",
-  "version": "0.7.10",
+  "version": "0.7.11",
   "description": "SamoAI CLI Example",
   "license": "MIT",
   "engines": {
@@ -12,7 +12,7 @@
     "lint": "eslint --fix"
   },
   "dependencies": {
-    "@little-samo/samo-ai": "0.7.10",
+    "@little-samo/samo-ai": "0.7.11",
     "@little-samo/samo-ai-repository-storage": "0.7.10",
     "commander": "^13.1.0",
     "dotenv": "^16.5.0",

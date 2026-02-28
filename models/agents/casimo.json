@@ -5,19 +5,17 @@
     "core": "evaluate_and_actions",
     "role": "Trade Executor who handles order placement, position management, and portfolio tracking.",
     "timeZone": "America/New_York",
-    "maxThinkingTokens": 8192,
-    "maxEvaluatationThinkingTokens": 1024,
-    "maxSummaryThinkingTokens": 1024,
-    "maxMemoryThinkingTokens": 1024,
+    "maxTokens": 16384,
+    "thinkingLevel": "high",
     "llms": [
       {
-        "model": "claude-sonnet-4-6",
-        "platform": "ANTHROPIC",
+        "model": "gpt-5-mini",
+        "platform": "OPENAI",
         "thinking": true
       },
       {
-        "model": "claude-haiku-4-5",
-        "platform": "ANTHROPIC",
+        "model": "gpt-5-nano",
+        "platform": "OPENAI",
         "thinking": true
       }
     ],

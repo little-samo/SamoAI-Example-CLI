@@ -5,17 +5,19 @@
     "core": "evaluate_and_actions",
     "role": "Market Analyst who verifies and validates trading opportunities before execution.",
     "timeZone": "America/New_York",
-    "maxTokens": 16384,
-    "thinkingLevel": "high",
+    "maxThinkingTokens": 8192,
+    "maxEvaluatationThinkingTokens": 1024,
+    "maxSummaryThinkingTokens": 1024,
+    "maxMemoryThinkingTokens": 1024,
     "llms": [
       {
-        "model": "gpt-5-mini",
-        "platform": "OPENAI",
+        "model": "claude-sonnet-4-6",
+        "platform": "ANTHROPIC",
         "thinking": true
       },
       {
-        "model": "gpt-5-nano",
-        "platform": "OPENAI",
+        "model": "claude-haiku-4-5",
+        "platform": "ANTHROPIC",
         "thinking": true
       }
     ],
