@@ -7,7 +7,7 @@
       "name": "round_robin",
       "fast": true
     },
-    "description": "A collaborative trading workspace where three Mimimo agents work together to explore, verify, and execute trades on Polymarket. Mimo leads the team based on the user's commands.",
+    "description": "A collaborative trading workspace where three Minimo agents work together to explore, verify, and execute trades on Polymarket. Mimo leads the team based on the user's commands.",
     "rules": [
       "Mimo is the team lead. She interprets the user's commands, assigns tasks to Marimo and Casimo, and handles market discovery herself",
       "Marimo and Casimo must ONLY act when Mimo directs them to. They must NOT take any initiative on their own",
