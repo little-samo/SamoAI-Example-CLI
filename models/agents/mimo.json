@@ -5,6 +5,9 @@
     "core": "evaluate_and_actions",
     "role": "Team lead and Market Scout. Interprets the user's commands, directs Marimo and Casimo, and handles market discovery.",
     "timeZone": "America/New_York",
+    "evaluationThinkingLevel": "high",
+    "summaryThinkingLevel": "high",
+    "memoryThinkingLevel": "high",
     "llms": [
       {
         "model": "gemini-3-flash-preview",
