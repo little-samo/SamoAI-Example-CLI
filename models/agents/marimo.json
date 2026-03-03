@@ -5,6 +5,7 @@
     "core": "evaluate_and_actions",
     "role": "Market Analyst who verifies and validates trading opportunities before execution.",
     "timeZone": "America/New_York",
+    "maxTokens": 16384,
     "maxThinkingTokens": 8192,
     "llms": [
       {
@@ -13,7 +14,7 @@
         "thinking": true
       },
       {
-        "model": "gemini-2.5-flash-lite-preview-09-2025",
+        "model": "gemini-3-flash-preview",
         "platform": "GEMINI",
         "thinking": true
       }

@@ -113,6 +113,7 @@ export class TerminalUI {
   private agentScrollOffset = 0;
 
   private currentMission: LocationMission | null = null;
+  private entityNameById = new Map<string, string>();
 
   private readonly originalConsoleLog = console.log;
   private readonly originalConsoleError = console.error;
@@ -1436,15 +1437,17 @@ export class TerminalUI {
           locationState.userIds
         );
 
-      const nameById = new Map<number, string>();
       for (const [id, model] of models) {
-        nameById.set(Number(id), model.name);
+        this.entityNameById.set(`agent#${id}`, model.name);
       }
       const userModel = await SamoAI.instance.userRepository.getUserModel(
         locationState.userIds[0]
       );
       if (userModel) {
-        nameById.set(Number(locationState.userIds[0]), userModel.nickname);
+        this.entityNameById.set(
+          `user#${locationState.userIds[0]}`,
+          userModel.nickname
+        );
       }
 
       this.agentInfos = [];
@@ -1459,7 +1462,7 @@ export class TerminalUI {
           for (const es of aes) {
             if (es.memories.length === 0) continue;
             const tName =
-              nameById.get(Number(es.targetId)) ??
+              this.entityNameById.get(`${es.targetType}#${es.targetId}`) ??
               `${es.targetType}#${es.targetId}`;
             entityMems.push({
               targetName: tName,
@@ -1699,9 +1702,17 @@ export class TerminalUI {
       (agent: Agent, _entityState: unknown, index: number, memory: string) => {
         const info = this.agentInfos.find((a) => a.id === agent.model.id);
         if (!info) return;
-        const updatingEntity = agent.location.updatingEntity;
-        if (!updatingEntity) return;
-        const targetName = updatingEntity.name;
+
+        const es = _entityState as {
+          targetId?: number | string;
+          targetType?: string;
+        };
+        if (!es || !es.targetId || !es.targetType) return;
+
+        const targetName =
+          this.entityNameById.get(`${es.targetType}#${es.targetId}`) ??
+          `${es.targetType}#${es.targetId}`;
+
         let em = info.entityMemories.find((e) => e.targetName === targetName);
         if (!em) {
           em = { targetName, memories: [] };
