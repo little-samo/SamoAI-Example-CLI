@@ -84,32 +84,47 @@ npm run chat -- -- --location custom_location
 
 ## Polymarket Trading Example
 
-This project includes a multi-agent Polymarket trading setup where three agents collaborate to discover, verify, and execute prediction market trades.
+This project includes a multi-agent Polymarket trading setup where three agents collaborate inside the `polymarket_trading` location to discover, verify, and execute prediction market trades.
 
 ### Prerequisites
 
-You need to run the [SamoAI-MCP-Polymarket](https://github.com/little-samo/SamoAI-MCP-Polymarket) server locally. Follow the setup instructions in that repository to configure your Polymarket credentials and start the MCP server on `http://localhost:11188`.
+This setup is designed to use the [`little-samo/SamoAI-MCP-Polymarket`](https://github.com/little-samo/SamoAI-MCP-Polymarket) MCP server. Run that server locally, follow its setup instructions, and start it on `http://localhost:11188`.
+
+The MCP server supports both read-only market discovery and authenticated trading. If you do not configure Polymarket credentials, market data tools can still work, but order placement will not.
 
 ### Agents
 
-| Agent | Model | Role |
-|-------|-------|------|
-| **Mimo** (Gemini) | gemini-3.1-pro / gemini-3-flash | Team Lead & Market Scout — interprets user commands, directs the team, and discovers opportunities |
-| **Marimo** (GPT) | gpt-5.2 / gpt-5-mini | Market Analyst — verifies data and researches context via web search |
-| **Casimo** (Claude) | claude-opus-4-6 / claude-haiku-4-5 | Trade Executor — places orders and tracks portfolio |
+| Agent | Model Family | Role |
+|-------|--------------|------|
+| **Mimo** | Gemini | Team Lead & Market Scout — interprets user commands, directs the team, and discovers opportunities |
+| **Marimo** | Claude | Market Verification Analyst — validates liquidity, price action, order book conditions, and external context |
+| **Casimo** | GPT | Trade Executor — places orders, manages positions, and tracks portfolio exposure |
+
+### Strategy
+
+- Focus on liquid markets nearing resolution where the outcome appears highly settled.
+- Prefer diversified exposure across multiple unrelated markets instead of concentrating in one event or topic.
+- Use recent volume, spread, and order book depth to avoid thin markets that are difficult to enter or exit cleanly.
+- Treat price range and time-to-close as guidelines, not absolute filters, when liquidity and verification are especially strong.
+- If a market cannot be verified quickly and confidently, skip it and move on to another one.
 
 ### Workflow
 
 1. You provide a trading strategy or direction
 2. **Mimo** interprets your command, scans Polymarket, and directs the team
-3. **Marimo** verifies the opportunity using market data and web search
-4. **Casimo** executes the trade and monitors positions
+3. **Marimo** verifies the opportunity using market data, liquidity checks, and web search
+4. If the verification is weak or inconclusive, the team abandons that market and continues searching
+5. **Casimo** executes the trade, re-checks price before entry, and monitors positions
 
 ### Running
 
 ```
 npm run chat -- -- --agents "mimo,marimo,casimo" --location polymarket_trading
 ```
+
+### Live Performance
+
+Want to see how the strategy performs in the wild? You can follow the trading results on the official Little Samo Polymarket profile: [polymarket.com/@littlesamo](https://polymarket.com/@littlesamo).
 
 ## Learn More
 
