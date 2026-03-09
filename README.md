@@ -102,10 +102,11 @@ The MCP server supports both read-only market discovery and authenticated tradin
 
 ### Strategy
 
-- Focus on liquid markets nearing resolution where the outcome appears highly settled.
-- Prefer diversified exposure across multiple unrelated markets instead of concentrating in one event or topic.
-- Use recent volume, spread, and order book depth to avoid thin markets that are difficult to enter or exit cleanly.
-- Treat price range and time-to-close as guidelines, not absolute filters, when liquidity and verification are especially strong.
+- Prefer liquid markets that close in roughly `3` to `24` hours and appear highly settled.
+- Treat prices around `0.80` to `0.92` as the default working range for near-settled ideas.
+- Use recent volume, spread, and order book depth to avoid thin markets that are difficult to enter or exit cleanly. A spread of roughly `0.03` or tighter is a useful default standard.
+- Default to about `1.5%` of capital per market across roughly `10` to `12` positions when enough independent opportunities exist. Allow `2.0%` sizing only for unusually strong verified setups.
+- Prefer diversified exposure across unrelated markets instead of stacking multiple highly correlated positions on the same event, asset, or price ladder.
 - If a market cannot be verified quickly and confidently, skip it and move on to another one.
 
 ### Workflow
